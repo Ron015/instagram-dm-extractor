@@ -278,17 +278,44 @@ window.__igDmExtractorLoaded = true;
         }
         return { downloaded: false, error: 'No data available.' };
 
+      case 'DOWNLOAD_HTML':
+        if (state.jsonData) {
+          // Return a Promise for async operation
+          return (async () => {
+            try {
+              const htmlContent = await ChatHtmlGenerator.generateHtml(state.jsonData, state.stats);
+              const slug = (state.chatTitle || 'chat').replace(/[^\p{L}\p{M}\p{N}._-]/gu, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 30) || 'chat';
+              ChatDownloader.downloadHtml(htmlContent, `${slug}.html`);
+              return { downloaded: true };
+            } catch (err) {
+              console.error('HTML generation failed:', err);
+              return { downloaded: false, error: err.message || 'HTML generation failed.' };
+            }
+          })();
+        }
+        return Promise.resolve({ downloaded: false, error: 'No data available.' });
+
       default:
         return null;
     }
   }
 
   // Expose handler for popup's scripting.executeScript calls (Chrome)
-  window.__igDmHandleMessage = handleMessage;
+  window.__igDmHandleMessage = (msg) => {
+    const result = handleMessage(msg);
+    // If result is a Promise, return it directly
+    if (result && typeof result.then === 'function') {
+      return result;
+    }
+    return result;
+  };
 
   // Also keep runtime.onMessage for Firefox and content-script-to-popup messages
   browserAPI.runtime.onMessage.addListener((msg, _sender) => {
     const result = handleMessage(msg);
+    if (result && typeof result.then === 'function') {
+      return result;
+    }
     return result !== null ? Promise.resolve(result) : false;
   });
 })();

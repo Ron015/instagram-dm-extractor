@@ -21,6 +21,7 @@
     completeText: document.getElementById('complete-text'),
     downloadJson: document.getElementById('download-json'),
     downloadMd: document.getElementById('download-md'),
+    downloadHtml: document.getElementById('download-html'),
     extractAgain: document.getElementById('extract-again'),
     errorText: document.getElementById('error-text'),
     retryBtn: document.getElementById('retry-btn'),
@@ -56,24 +57,25 @@
   }
 
   function setThreadInfo(text) {
-    [els.threadInfo, els.threadInfoExtracting, els.threadInfoComplete].forEach(el => {
-      const strong = document.createElement('strong');
-      strong.textContent = text;
-      el.replaceChildren(strong);
-    });
+    const html = `<strong>${escapeHtml(text)}</strong>`;
+    els.threadInfo.innerHTML = html;
+    els.threadInfoExtracting.innerHTML = html;
+    els.threadInfoComplete.innerHTML = html;
     els.extractBtn.textContent = `Extract Messages from ${text}`;
   }
 
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
   function renderSubSection(container, data) {
-    container.replaceChildren();
+    container.innerHTML = '';
     for (const [key, val] of Object.entries(data)) {
       const row = document.createElement('div');
       row.className = 'stats-sub-row';
-      const keySpan = document.createElement('span');
-      keySpan.textContent = key;
-      const valSpan = document.createElement('span');
-      valSpan.textContent = String(val);
-      row.append(keySpan, valSpan);
+      row.innerHTML = `<span>${escapeHtml(key)}</span><span>${escapeHtml(String(val))}</span>`;
       container.appendChild(row);
     }
   }
@@ -172,11 +174,8 @@
     const resp = await sendToContent(tab, { type: 'CHECK_PAGE' });
     if (!resp || !resp.onDmPage) {
       showState('notDm');
-      const mark = document.createElement('mark');
-      const bold = document.createElement('b');
-      bold.textContent = 'full view';
-      mark.appendChild(bold);
-      els.notDm.replaceChildren('Open a DM conversation in ', mark, ' to extract messages.');
+      els.notDm.innerHTML =
+        'Open a DM conversation in <mark><b>full view</b></mark> to extract messages.';
       return;
     }
 
@@ -338,7 +337,14 @@
       els.completeText.textContent = resp.error || 'Download failed.';
     }
   });
-
+  els.downloadHtml.addEventListener('click', async () => {
+      const tab = await getActiveTab();
+      if (!tab) return;
+      const resp = await sendToContent(tab, { type: 'DOWNLOAD_HTML' });
+      if (resp && !resp.downloaded) {
+        els.completeText.textContent = resp.error || 'Download failed.';
+      }
+    });
   els.downloadMd.addEventListener('click', async () => {
     const tab = await getActiveTab();
     if (!tab) return;
