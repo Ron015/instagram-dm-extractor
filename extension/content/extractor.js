@@ -105,7 +105,12 @@ var ChatExtractor = (() => {
           return { ok: false, error: 'auth_error', message: `Auth error (${resp.status})` };
         }
 
-        // Other errors — retry
+        // Other 4xx are deterministic (e.g. 404 for an unknown thread id) — retrying just wastes time
+        if (resp.status < 500) {
+          return { ok: false, error: `http_${resp.status}`, message: `Request failed (${resp.status}).` };
+        }
+
+        // 5xx — retry
         await delay(2000);
       } catch (e) {
         await delay(2000);
@@ -119,11 +124,17 @@ var ChatExtractor = (() => {
     return result.ok ? result.data : null;
   }
 
-  async function fetchInbox(csrftoken) {
-    const threads = [];
+  async function resolveThreadId(rawId, csrftoken) {
+    // Try direct access first
+    const params = { visual_message_return_type: 'unseen', limit: '1' };
+    const data = await apiFetchSafe(`/direct_v2/threads/${rawId}/`, params, csrftoken);
+    if (data && data.thread) return { ok: true, threadId: rawId };
+
+    // Scan the inbox page by page, stopping at the first match — the open
+    // chat is almost always recent, so this usually resolves in one request.
     let cursor = null;
     while (true) {
-      const params = {
+      const inboxParams = {
         visual_message_return_type: 'unseen',
         thread_message_limit: '1',
         persistentBadging: 'true',
@@ -131,40 +142,27 @@ var ChatExtractor = (() => {
         is_prefetching: 'false',
         folder: '0',
       };
-      if (cursor) params.cursor = cursor;
+      if (cursor) inboxParams.cursor = cursor;
 
-      const result = await apiFetch('/direct_v2/inbox/', params, csrftoken);
-      if (!result.ok) return threads;
+      const result = await apiFetch('/direct_v2/inbox/', inboxParams, csrftoken);
+      if (!result.ok) break;
 
       const inbox = result.data.inbox || {};
-      const batch = inbox.threads || [];
-      threads.push(...batch);
+      for (const t of inbox.threads || []) {
+        const matches = [
+          String(t.thread_v2_id || ''),
+          String(t.thread_id || ''),
+          String(t.messaging_thread_key || ''),
+        ];
+        if (matches.includes(rawId)) {
+          return { ok: true, threadId: t.thread_id };
+        }
+      }
 
       if (!inbox.has_older) break;
       cursor = inbox.oldest_cursor;
       if (!cursor) break;
       await adaptiveDelay();
-    }
-    return threads;
-  }
-
-  async function resolveThreadId(rawId, csrftoken) {
-    // Try direct access first
-    const params = { visual_message_return_type: 'unseen', limit: '1' };
-    const data = await apiFetchSafe(`/direct_v2/threads/${rawId}/`, params, csrftoken);
-    if (data && data.thread) return { ok: true, threadId: rawId };
-
-    // Search inbox for matching thread
-    const threads = await fetchInbox(csrftoken);
-    for (const t of threads) {
-      const matches = [
-        String(t.thread_v2_id || ''),
-        String(t.thread_id || ''),
-        String(t.messaging_thread_key || ''),
-      ];
-      if (matches.includes(rawId)) {
-        return { ok: true, threadId: t.thread_id };
-      }
     }
     return { ok: false, error: 'thread_not_found', message: 'Could not find this conversation.' };
   }
