@@ -42,7 +42,7 @@ assert.equal(count(html), count(template), 'chat data introduced a </script> ter
 assert.ok(!html.includes(breakout), 'raw breakout payload present in export');
 
 // 2. Embedded JSON round-trips exactly (covers < escaping and $-patterns).
-const m = html.match(/const chatData = ([\s\S]*?);\n\s*const extractionStats = ([\s\S]*?);\n/);
+const m = html.match(/try {\s*chatData = ([\s\S]*?);\s*extractionStats = ([\s\S]*?);\s*} catch/);
 assert.ok(m, 'could not locate embedded chat JSON');
 assert.deepEqual(JSON.parse(m[1]), chatData, 'chat data corrupted during embedding');
 assert.deepEqual(JSON.parse(m[2]), { '<key>': "$' stats" }, 'stats corrupted during embedding');

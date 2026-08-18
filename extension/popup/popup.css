@@ -281,3 +281,25 @@ h1 {
   padding-left: 6px;
   color: #444;
 }
+
+.formats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 8px;
+}
+
+.more-formats {
+  margin-top: 8px;
+}
+
+.more-formats summary {
+  font-size: 12px;
+  color: #8e8e8e;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 2px;
+}
+
+.more-formats summary:hover {
+  color: #262626;
+}

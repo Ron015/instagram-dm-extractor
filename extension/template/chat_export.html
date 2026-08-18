@@ -96,15 +96,10 @@
             font-weight: 600;
             font-size: 14px;
         }
-        .status-icons {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-        }
-        .status-icons svg {
-            width: 16px;
-            height: 16px;
-            fill: #fff;
+        .status-bar .status-date {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
         }
 
         .chat-header {
@@ -795,19 +790,14 @@
         }
         
         .info-bar {
-            padding: 8px 16px;
-            background: rgba(255, 255, 255, 0.03);
-            border-top: 0.5px solid rgba(255, 255, 255, 0.05);
+            padding: 6px 16px;
             border-bottom: 0.5px solid rgba(255, 255, 255, 0.05);
-            font-size: 11px;
+            font-size: 10px;
+            letter-spacing: 0.02em;
             color: var(--text-tertiary);
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             flex-shrink: 0;
-        }
-        .info-bar span {
-            font-weight: 500;
-            color: var(--text-secondary);
         }
         /* ============ Print / Save-as-PDF ============ */
         @media print {
@@ -815,25 +805,28 @@
                 transition: none !important;
                 animation: none !important;
             }
+            /* Keep the chat look on paper: dark column, real bubble colors */
+            .phone-frame, .phone-frame * {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
             body {
                 background: #fff;
                 display: block;
                 min-height: 0;
             }
             .phone-frame {
-                max-width: 100%;
+                max-width: 560px;
                 width: 100%;
                 height: auto;
                 max-height: none;
-                margin: 0;
+                margin: 0 auto;
                 border-radius: 0;
                 box-shadow: none;
-                background: #fff;
                 overflow: visible;
             }
             .messages-container {
                 overflow: visible;
-                background: #fff;
             }
             .messages-container > :first-child {
                 margin-top: 0;
@@ -841,57 +834,12 @@
             .message-row {
                 break-inside: avoid;
             }
-            /* Hide interactive chrome */
-            .status-bar, .back-btn, .header-actions, .search-bar,
+            /* Hide interactive chrome; the status bar stays — it carries the export time */
+            .back-btn, .header-actions, .search-bar,
             .input-bar, .scroll-bottom-btn,
             .reaction-popup-overlay, .lightbox-overlay {
                 display: none !important;
             }
-            .chat-header {
-                background: #fff;
-                border-bottom: 1px solid #ddd;
-            }
-            .header-name { color: #111; }
-            .header-status { color: #777; }
-            .header-avatar { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-            .info-bar {
-                background: #fff;
-                color: #777;
-                border-bottom: 1px solid #eee;
-            }
-            .date-separator span {
-                color: #555;
-                border-color: #ddd;
-            }
-            /* Sent stays Instagram blue on paper */
-            .sent .message-bubble, .sent .media-bubble, .sent .reel-share-bubble {
-                background: var(--bg-bubble-sent);
-                color: #fff;
-                print-color-adjust: exact;
-                -webkit-print-color-adjust: exact;
-            }
-            .received .message-bubble, .received .media-bubble, .received .reel-share-bubble {
-                background: #efefef;
-                color: #111;
-            }
-            .received .reel-owner { color: #111; }
-            .received .reel-label { color: #666; }
-            .reel-icon { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-            .action-log .message-bubble { color: #888; background: transparent; }
-            .message-timestamp { color: #999; }
-            .reaction-badge {
-                background: #fff;
-                border-color: #ddd;
-                box-shadow: none;
-                color: #111;
-            }
-            .reaction-badge .count-display { color: #666; }
-            .reply-preview {
-                background: #f5f5f5;
-                border-color: #e0e0e0;
-            }
-            .reply-preview .reply-sender { color: #333; }
-            .reply-preview .reply-text { color: #666; }
         }
     </style>
 </head>
@@ -899,11 +847,8 @@
 
     <div class="phone-frame" id="phoneFrame">
         <div class="status-bar">
-            <span class="time" id="statusTime">9:41</span>
-            <div class="status-icons">
-                <svg viewBox="0 0 24 24" width="16" height="16"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C17.93 4.07 6.07 4.07 1 9zm8 8l2 2c2.76-2.76 7.24-2.76 10 0l2-2c-3.87-3.87-10.13-3.87-14 0z" fill="#fff"/></svg>
-                <svg viewBox="0 0 24 24" width="16" height="16"><rect x="1" y="6" width="20" height="12" rx="2" fill="none" stroke="#fff" stroke-width="1.5"/><rect x="3" y="8" width="16" height="8" rx="0.5" fill="#fff"/></svg>
-            </div>
+            <span class="time" id="statusTime">__EXPORT_TIME__</span>
+            <span class="status-date" id="statusDate">__EXPORT_DATE__</span>
         </div>
 
         <div class="chat-header" id="chatHeader">
@@ -944,8 +889,7 @@
         </div>
 
         <div class="info-bar">
-            <span>📱 Exported from Instagram DM</span>
-            <span>💬 __MESSAGE_COUNT__ messages</span>
+            <span id="infoBarText">__MESSAGE_COUNT__ messages · Exported from Instagram</span>
         </div>
 
         <div class="messages-container" id="messagesContainer"></div>
@@ -985,11 +929,17 @@
         // ============================================
         // CHAT DATA (injected from extension)
         // ============================================
-        const chatData = __CHAT_JSON__;
-        const extractionStats = __STATS_JSON__;
+        let chatData = null;
+        let extractionStats = null;
+        try {
+            chatData = __CHAT_JSON__;
+            extractionStats = __STATS_JSON__;
+        } catch (e) {
+            // Running as an extension page — data arrives via chrome.storage below.
+        }
         // ============================================
 
-        (function() {
+        function startApp() {
             const messagesContainer = document.getElementById('messagesContainer');
             const scrollBottomBtn = document.getElementById('scrollBottomBtn');
             const statusTime = document.getElementById('statusTime');
@@ -1058,17 +1008,6 @@
                 if (diff < 7 && diff > 1) return days[d.getDay()];
                 return months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
             }
-
-            function updateStatusTime() {
-                const ist = new Date(Date.now() + IST_OFFSET);
-                let h = ist.getUTCHours();
-                const m = ist.getUTCMinutes().toString().padStart(2, '0');
-                const ampm = h >= 12 ? 'PM' : 'AM';
-                h = h % 12 || 12;
-                statusTime.textContent = h + ':' + m + ' ' + ampm;
-            }
-            updateStatusTime();
-            setInterval(updateStatusTime, 30000);
 
             function getDisplayName(u) {
                 if (u === 'me') return 'You';
@@ -1448,7 +1387,17 @@
             console.log('🔍 Ctrl+F or click search icon to search');
             console.log('🖼️ Click images for lightbox');
             console.log('💡 Click reactions to see who reacted');
-        })();
+        }
+
+        if (chatData) {
+            startApp();
+            // Opened via the popup's Save as PDF button — go straight to the print dialog.
+            if (location.hash.indexOf('print') !== -1) {
+                setTimeout(function() { window.print(); }, 700);
+            }
+        } else {
+            document.body.textContent = 'No chat data in this file. Export it again from the extension popup.';
+        }
     </script>
 </body>
 </html>

@@ -75,6 +75,14 @@ var ChatHtmlGenerator = (() => {
     const chatJson = JSON.stringify(chatData, null, 2).replace(/</g, '\\u003c');
     const statsJson = JSON.stringify(stats || {}).replace(/</g, '\\u003c');
 
+    const now = new Date();
+    let hours = now.getHours();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const exportTime = `${hours}:${String(now.getMinutes()).padStart(2, '0')} ${ampm}`;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const exportDate = `${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+
     // Function replacers: a string replacement would interpret $&, $', $` etc.
     // inside chat data as replacement patterns and corrupt the output.
     return template
@@ -82,6 +90,8 @@ var ChatHtmlGenerator = (() => {
       .replace(/__DISPLAY_NAME__/g, () => escapeHtml(displayName))
       .replace(/__STATUS_TEXT__/g, () => escapeHtml(statusText))
       .replace(/__MESSAGE_COUNT__/g, () => String(messageCount))
+      .replace(/__EXPORT_TIME__/g, () => exportTime)
+      .replace(/__EXPORT_DATE__/g, () => exportDate)
       .replace('__CHAT_JSON__', () => chatJson)
       .replace('__STATS_JSON__', () => statsJson);
   }

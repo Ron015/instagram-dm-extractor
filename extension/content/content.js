@@ -223,6 +223,10 @@ window.__igDmExtractorLoaded = true;
     }
   }
 
+  function chatSlug() {
+    return (state.chatTitle || 'chat').replace(/[^\p{L}\p{M}\p{N}._-]/gu, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 30) || 'chat';
+  }
+
   function handleMessage(msg) {
     switch (msg.type) {
       case 'CHECK_PAGE':
@@ -264,16 +268,33 @@ window.__igDmExtractorLoaded = true;
 
       case 'DOWNLOAD_JSON':
         if (state.jsonData) {
-          const slug = (state.chatTitle || 'chat').replace(/[^\p{L}\p{M}\p{N}._-]/gu, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 30) || 'chat';
-          ChatDownloader.downloadJson(state.jsonData, `${slug}.json`);
+          ChatDownloader.downloadJson(state.jsonData, `${chatSlug()}.json`);
           return { downloaded: true };
         }
         return { downloaded: false, error: 'No data available.' };
 
       case 'DOWNLOAD_MD':
         if (state.mdText) {
-          const slug = (state.chatTitle || 'chat').replace(/[^\p{L}\p{M}\p{N}._-]/gu, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 30) || 'chat';
-          ChatDownloader.downloadMarkdown(state.mdText, `${slug}.md`);
+          ChatDownloader.downloadMarkdown(state.mdText, `${chatSlug()}.md`);
+          return { downloaded: true };
+        }
+        return { downloaded: false, error: 'No data available.' };
+
+      case 'DOWNLOAD_TXT':
+        if (state.mdText) {
+          ChatDownloader.downloadFile(state.mdText, `${chatSlug()}.txt`, 'text/plain');
+          return { downloaded: true };
+        }
+        return { downloaded: false, error: 'No data available.' };
+
+      case 'DOWNLOAD_CSV':
+        if (state.jsonData) {
+          const esc = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+          const rows = ['timestamp,sender,type,text'];
+          for (const m of state.jsonData.messages || []) {
+            rows.push([new Date(m.timestampUnix * 1000).toISOString(), m.sender, m.type, m.text || ''].map(esc).join(','));
+          }
+          ChatDownloader.downloadFile(rows.join('\r\n'), `${chatSlug()}.csv`, 'text/csv');
           return { downloaded: true };
         }
         return { downloaded: false, error: 'No data available.' };
@@ -284,8 +305,7 @@ window.__igDmExtractorLoaded = true;
           return (async () => {
             try {
               const htmlContent = await ChatHtmlGenerator.generateHtml(state.jsonData, state.stats);
-              const slug = (state.chatTitle || 'chat').replace(/[^\p{L}\p{M}\p{N}._-]/gu, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 30) || 'chat';
-              ChatDownloader.downloadHtml(htmlContent, `${slug}.html`);
+              ChatDownloader.downloadHtml(htmlContent, `${chatSlug()}.html`);
               return { downloaded: true };
             } catch (err) {
               console.error('HTML generation failed:', err);
@@ -294,6 +314,23 @@ window.__igDmExtractorLoaded = true;
           })();
         }
         return Promise.resolve({ downloaded: false, error: 'No data available.' });
+
+      case 'PREPARE_PDF':
+        // Generate the export, hand back a blob URL owned by this tab;
+        // the popup opens it with #print to trigger the Save-as-PDF dialog.
+        if (state.jsonData) {
+          return (async () => {
+            try {
+              const htmlContent = await ChatHtmlGenerator.generateHtml(state.jsonData, state.stats);
+              const url = URL.createObjectURL(new Blob([htmlContent], { type: 'text/html' }));
+              return { ok: true, url };
+            } catch (err) {
+              console.error('PDF preparation failed:', err);
+              return { ok: false, error: err.message || 'PDF preparation failed.' };
+            }
+          })();
+        }
+        return Promise.resolve({ ok: false, error: 'No data available.' });
 
       default:
         return null;

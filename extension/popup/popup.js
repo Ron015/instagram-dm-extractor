@@ -19,9 +19,12 @@
     progressBar: document.getElementById('progress-bar'),
     progressText: document.getElementById('progress-text'),
     completeText: document.getElementById('complete-text'),
+    downloadTxt: document.getElementById('download-txt'),
+    downloadPdf: document.getElementById('download-pdf'),
     downloadJson: document.getElementById('download-json'),
     downloadMd: document.getElementById('download-md'),
     downloadHtml: document.getElementById('download-html'),
+    downloadCsv: document.getElementById('download-csv'),
     extractAgain: document.getElementById('extract-again'),
     errorText: document.getElementById('error-text'),
     retryBtn: document.getElementById('retry-btn'),
@@ -332,30 +335,32 @@
   });
   els.retryBtn.addEventListener('click', startExtraction);
 
-  els.downloadJson.addEventListener('click', async () => {
-    const tab = await getActiveTab();
-    if (!tab) return;
-    const resp = await sendToContent(tab, { type: 'DOWNLOAD_JSON' });
-    if (resp && !resp.downloaded) {
-      els.completeText.textContent = resp.error || 'Download failed.';
-    }
+  [
+    ['downloadTxt', 'DOWNLOAD_TXT'],
+    ['downloadHtml', 'DOWNLOAD_HTML'],
+    ['downloadMd', 'DOWNLOAD_MD'],
+    ['downloadCsv', 'DOWNLOAD_CSV'],
+    ['downloadJson', 'DOWNLOAD_JSON'],
+  ].forEach(([key, type]) => {
+    els[key].addEventListener('click', async () => {
+      const tab = await getActiveTab();
+      if (!tab) return;
+      const resp = await sendToContent(tab, { type });
+      if (resp && !resp.downloaded) {
+        els.completeText.textContent = resp.error || 'Download failed.';
+      }
+    });
   });
 
-  els.downloadHtml.addEventListener('click', async () => {
+  els.downloadPdf.addEventListener('click', async () => {
     const tab = await getActiveTab();
     if (!tab) return;
-    const resp = await sendToContent(tab, { type: 'DOWNLOAD_HTML' });
-    if (resp && !resp.downloaded) {
-      els.completeText.textContent = resp.error || 'Download failed.';
-    }
-  });
-
-  els.downloadMd.addEventListener('click', async () => {
-    const tab = await getActiveTab();
-    if (!tab) return;
-    const resp = await sendToContent(tab, { type: 'DOWNLOAD_MD' });
-    if (resp && !resp.downloaded) {
-      els.completeText.textContent = resp.error || 'Download failed.';
+    const resp = await sendToContent(tab, { type: 'PREPARE_PDF' });
+    if (resp && resp.ok && resp.url) {
+      // The export opens in a tab and brings up the print dialog (Save as PDF)
+      browserAPI.tabs.create({ url: resp.url + '#print' });
+    } else {
+      els.completeText.textContent = (resp && resp.error) || 'PDF export failed.';
     }
   });
 
