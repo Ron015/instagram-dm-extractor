@@ -72,11 +72,15 @@ h1 {
 }
 
 .btn.secondary {
-  font-size: 12px;
-  padding: 6px 10px;
+  width: 100%;
   margin-top: 8px;
-  color: #888;
-  border-color: #ddd;
+  background: #fafafa;
+  color: #262626;
+  border-color: #dbdbdb;
+}
+
+.btn.secondary:hover {
+  background: #f0f0f0;
 }
 
 .btn-group {
@@ -289,19 +293,45 @@ h1 {
 }
 
 .more-formats {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
+/* Style the disclosure like a real dropdown button */
 .more-formats summary {
-  font-size: 12px;
-  color: #8e8e8e;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border: 1px solid #dbdbdb;
+  border-radius: 6px;
+  background: #fff;
+  color: #262626;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
   user-select: none;
-  padding: 4px 2px;
+  list-style: none;
+}
+
+.more-formats summary::-webkit-details-marker {
+  display: none;
+}
+
+.more-formats summary::after {
+  content: '⌄';
+  font-size: 15px;
+  line-height: 1;
+  color: #8e8e8e;
+  transform: translateY(-2px);
+  transition: transform 0.15s;
+}
+
+.more-formats[open] summary::after {
+  transform: translateY(1px) rotate(180deg);
 }
 
 .more-formats summary:hover {
-  color: #262626;
+  background: #f0f0f0;
 }
 
 .promo-link {
