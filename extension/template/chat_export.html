@@ -311,6 +311,10 @@
             -webkit-overflow-scrolling: touch;
             background: var(--bg-primary);
         }
+        /* Anchor short conversations to the bottom, like the real app */
+        .messages-container > :first-child {
+            margin-top: auto;
+        }
         .messages-container::-webkit-scrollbar {
             width: 0;
         }
@@ -333,9 +337,12 @@
         .message-row {
             display: flex;
             flex-direction: column;
-            max-width: 82%;
-            margin-bottom: 1px;
+            max-width: 72%;
+            margin-bottom: 2px;
             position: relative;
+        }
+        .message-row.has-reaction {
+            margin-bottom: 16px;
         }
         .message-row.sent {
             align-self: flex-end;
@@ -453,6 +460,12 @@
             padding: 4px 10px;
             text-align: center;
         }
+        /* Bracketed placeholders ([Voice message], [Story share], ...) */
+        .message-bubble.meta {
+            font-style: italic;
+            font-size: 14px;
+            opacity: 0.85;
+        }
 
         .media-bubble {
             padding: 3px;
@@ -524,12 +537,13 @@
 
         .reaction-badge {
             position: absolute;
-            bottom: -6px;
-            right: -4px;
+            bottom: -12px;
+            right: 10px;
             background: #1c1c1e;
             border-radius: 12px;
             padding: 3px 6px;
             font-size: 13px;
+            font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', var(--font-family);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
             z-index: 3;
             cursor: pointer;
@@ -544,7 +558,7 @@
         }
         .received .reaction-badge {
             right: auto;
-            left: -4px;
+            left: 10px;
         }
         .reaction-badge .count-display {
             font-size: 11px;
@@ -553,11 +567,14 @@
         }
 
         .message-timestamp {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-tertiary);
-            margin-top: 3px;
+            margin-top: 2px;
             padding: 0 6px;
-            opacity: 0.7;
+            opacity: 0.55;
+        }
+        .has-reaction .message-timestamp {
+            margin-top: 14px;
         }
         .sent .message-timestamp {
             text-align: right;
@@ -1002,6 +1019,12 @@
                 return w;
             }
 
+            // Force color emoji presentation — IG sends bare U+2764 etc.,
+            // which otherwise renders as a black text glyph.
+            function emojiFix(s) {
+                return (s || '').replace(/([☀-➿])(?!️)/g, '$1️');
+            }
+
             function buildReactionBadge(reactions) {
                 if (!reactions || !reactions.length) return null;
                 const uniq = [];
@@ -1010,7 +1033,7 @@
                 }
                 const b = document.createElement('div');
                 b.className = 'reaction-badge';
-                b.innerHTML = '<span>' + escapeHtmlText(uniq.join('')) + '</span>' + (reactions.length > 1 ? '<span class="count-display">' + reactions.length + '</span>' : '');
+                b.innerHTML = '<span>' + escapeHtmlText(emojiFix(uniq.join(''))) + '</span>' + (reactions.length > 1 ? '<span class="count-display">' + reactions.length + '</span>' : '');
                 b.title = 'Click to see who reacted';
                 b.addEventListener('click', function(e) { e.stopPropagation(); showReactionPopup(reactions); });
                 return b;
@@ -1046,7 +1069,7 @@
                     b.className = 'message-bubble';
                     b.textContent = msg.text;
                     cw.appendChild(b);
-                } else if (msg.type === 'media' && msg.mediaUrl) {
+                } else if ((msg.type === 'media' || msg.type === 'animated_media') && msg.mediaUrl) {
                     const mb = document.createElement('div');
                     mb.className = 'media-bubble';
                     const img = document.createElement('img');
@@ -1061,22 +1084,31 @@
                     mb.appendChild(img);
                     cw = mb;
                     cw.style.position = 'relative';
-                } else if (msg.type === 'reel_share') {
+                } else if (msg.type === 'reel_share' || msg.type === 'clip') {
+                    const owner = msg.reelOwner || ((msg.text || '').match(/@([\w.]+)/) || [])[1] || '';
                     const rb = document.createElement('div');
                     rb.className = 'reel-share-bubble';
-                    rb.innerHTML = '<div class="reel-icon"><svg viewBox="0 0 24 24"><polygon points="8 5 19 12 8 19" fill="#fff"/></svg></div><div><span class="reel-label">Reel</span><br><span class="reel-owner">' + escapeHtmlText(msg.reelOwner || 'Unknown') + '</span></div>';
-                    cw = rb;
-                    cw.style.position = 'relative';
+                    rb.innerHTML = '<div class="reel-icon"><svg viewBox="0 0 24 24"><polygon points="8 5 19 12 8 19" fill="#fff"/></svg></div><div><span class="reel-label">Reel</span><br><span class="reel-owner">' + escapeHtmlText(owner ? '@' + owner : 'Reel') + '</span></div>';
+                    cw.appendChild(rb);
+                    // reel_share text is the sender's comment on the reel — keep it
+                    if (msg.text && msg.text[0] !== '[') {
+                        const b = document.createElement('div');
+                        b.className = 'message-bubble';
+                        b.style.marginTop = '2px';
+                        b.innerHTML = query ? highlightText(escapeHtmlText(msg.text), query) : escapeHtmlText(msg.text);
+                        cw.appendChild(b);
+                    }
                 } else {
                     const b = document.createElement('div');
                     b.className = 'message-bubble';
+                    if (/^\[.*\]$/.test(msg.text || '')) b.classList.add('meta');
                     b.innerHTML = query ? highlightText(escapeHtmlText(msg.text), query) : escapeHtmlText(msg.text);
                     cw.appendChild(b);
                 }
 
                 if (msg.reactions && msg.reactions.length) {
                     const badge = buildReactionBadge(msg.reactions);
-                    if (badge) cw.appendChild(badge);
+                    if (badge) { cw.appendChild(badge); row.classList.add('has-reaction'); }
                 }
 
                 row.appendChild(cw);
@@ -1270,7 +1302,7 @@
                     const r = groupedValues[i];
                     const item = document.createElement('div');
                     item.className = 'reactor-item';
-                    item.innerHTML = '<span class="reactor-emoji">' + escapeHtmlText(r.emoji) + '</span><span class="reactor-name">' + escapeHtmlText(getDisplayName(r.user)) + (r.count > 1 ? ' (×' + r.count + ')' : '') + '</span>';
+                    item.innerHTML = '<span class="reactor-emoji">' + escapeHtmlText(emojiFix(r.emoji)) + '</span><span class="reactor-name">' + escapeHtmlText(getDisplayName(r.user)) + (r.count > 1 ? ' (×' + r.count + ')' : '') + '</span>';
                     reactorList.appendChild(item);
                 }
                 reactionPopupOverlay.classList.add('active');
