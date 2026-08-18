@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="description" content="Instagram DM Chat Export">
+    <!-- Defense in depth: the export must never make network requests beyond images. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src https: data:;">
     <meta name="theme-color" content="#000000">
     <title>Instagram DM - Chat</title>
     
@@ -1008,7 +1010,7 @@
                 }
                 const b = document.createElement('div');
                 b.className = 'reaction-badge';
-                b.innerHTML = '<span>' + uniq.join('') + '</span>' + (reactions.length > 1 ? '<span class="count-display">' + reactions.length + '</span>' : '');
+                b.innerHTML = '<span>' + escapeHtmlText(uniq.join('')) + '</span>' + (reactions.length > 1 ? '<span class="count-display">' + reactions.length + '</span>' : '');
                 b.title = 'Click to see who reacted';
                 b.addEventListener('click', function(e) { e.stopPropagation(); showReactionPopup(reactions); });
                 return b;
@@ -1268,7 +1270,7 @@
                     const r = groupedValues[i];
                     const item = document.createElement('div');
                     item.className = 'reactor-item';
-                    item.innerHTML = '<span class="reactor-emoji">' + r.emoji + '</span><span class="reactor-name">' + getDisplayName(r.user) + (r.count > 1 ? ' (×' + r.count + ')' : '') + '</span>';
+                    item.innerHTML = '<span class="reactor-emoji">' + escapeHtmlText(r.emoji) + '</span><span class="reactor-name">' + escapeHtmlText(getDisplayName(r.user)) + (r.count > 1 ? ' (×' + r.count + ')' : '') + '</span>';
                     reactorList.appendChild(item);
                 }
                 reactionPopupOverlay.classList.add('active');

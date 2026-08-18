@@ -8,11 +8,8 @@
 var ChatHtmlGenerator = (() => {
   'use strict';
 
-  // Template as a string (embedded for Chrome extension compatibility)
-  // In a real implementation, you'd fetch this from a file, but for Chrome extensions
-  // we need to embed it or use chrome.runtime.getURL
   const TEMPLATE_URL = chrome.runtime.getURL('template/chat_export.html');
-  
+
   let cachedTemplate = null;
 
   async function loadTemplate() {
@@ -72,20 +69,21 @@ var ChatHtmlGenerator = (() => {
     const statusText = getStatusText(chatData);
     const messageCount = (chatData.messages || []).length;
     
-    // Prepare JSON strings
-    const chatJson = JSON.stringify(chatData, null, 2);
-    const statsJson = JSON.stringify(stats || {});
-    
-    // Replace all placeholders
-    let html = template
-      .replace(/__AVATAR_INITIALS__/g, avatarInitials)
-      .replace(/__DISPLAY_NAME__/g, escapeHtml(displayName))
-      .replace(/__STATUS_TEXT__/g, escapeHtml(statusText))
-      .replace(/__MESSAGE_COUNT__/g, messageCount)
-      .replace('__CHAT_JSON__', chatJson)
-      .replace('__STATS_JSON__', statsJson);
-    
-    return html;
+    // The JSON is embedded inside a <script> block, so escape "<" to keep
+    // attacker-controlled message text (e.g. "</script>") from breaking out
+    // of the script context. < is valid in both JSON and JS source.
+    const chatJson = JSON.stringify(chatData, null, 2).replace(/</g, '\\u003c');
+    const statsJson = JSON.stringify(stats || {}).replace(/</g, '\\u003c');
+
+    // Function replacers: a string replacement would interpret $&, $', $` etc.
+    // inside chat data as replacement patterns and corrupt the output.
+    return template
+      .replace(/__AVATAR_INITIALS__/g, () => escapeHtml(avatarInitials))
+      .replace(/__DISPLAY_NAME__/g, () => escapeHtml(displayName))
+      .replace(/__STATUS_TEXT__/g, () => escapeHtml(statusText))
+      .replace(/__MESSAGE_COUNT__/g, () => String(messageCount))
+      .replace('__CHAT_JSON__', () => chatJson)
+      .replace('__STATS_JSON__', () => statsJson);
   }
 
   function escapeHtml(str) {

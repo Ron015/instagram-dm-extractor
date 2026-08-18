@@ -301,14 +301,7 @@ window.__igDmExtractorLoaded = true;
   }
 
   // Expose handler for popup's scripting.executeScript calls (Chrome)
-  window.__igDmHandleMessage = (msg) => {
-    const result = handleMessage(msg);
-    // If result is a Promise, return it directly
-    if (result && typeof result.then === 'function') {
-      return result;
-    }
-    return result;
-  };
+  window.__igDmHandleMessage = handleMessage;
 
   // Also keep runtime.onMessage for Firefox and content-script-to-popup messages
   browserAPI.runtime.onMessage.addListener((msg, _sender) => {
