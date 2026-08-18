@@ -356,9 +356,11 @@
     const tab = await getActiveTab();
     if (!tab) return;
     const resp = await sendToContent(tab, { type: 'PREPARE_PDF' });
-    if (resp && resp.ok && resp.url) {
-      // The export opens in a tab and brings up the print dialog (Save as PDF)
-      browserAPI.tabs.create({ url: resp.url + '#print' });
+    if (resp && resp.ok) {
+      // Open the export as an extension-origin page; it reads the stashed chat from
+      // storage and brings up the print dialog (Save as PDF). Extension origin works
+      // on both Chrome and Firefox, unlike an instagram.com blob URL.
+      browserAPI.tabs.create({ url: browserAPI.runtime.getURL('template/chat_export.html') + '#print' });
     } else {
       els.completeText.textContent = (resp && resp.error) || 'PDF export failed.';
     }

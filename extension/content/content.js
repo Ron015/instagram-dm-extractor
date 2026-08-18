@@ -322,16 +322,17 @@ window.__igDmExtractorLoaded = true;
         return Promise.resolve({ downloaded: false, error: 'No data available.' });
 
       case 'PREPARE_PDF':
-        // Generate the export, hand back a blob URL owned by this tab;
-        // the popup opens it with #print to trigger the Save-as-PDF dialog.
+        // Stash the chat in extension storage and let the popup open the export as
+        // an extension-origin page. A blob URL made here is owned by the
+        // instagram.com principal, which Firefox refuses to open from the popup —
+        // storage keeps the print page on the extension's own origin on both browsers.
         if (state.jsonData) {
           return (async () => {
             try {
-              const htmlContent = await ChatHtmlGenerator.generateHtml(state.jsonData, state.stats);
-              const url = URL.createObjectURL(new Blob([htmlContent], { type: 'text/html' }));
-              // Free the blob (holds the full transcript) once the new tab has loaded it.
-              setTimeout(() => URL.revokeObjectURL(url), 60000);
-              return { ok: true, url };
+              await browserAPI.storage.local.set({
+                igdmPendingPdf: { chat: state.jsonData, stats: state.stats || {}, exportedAt: Date.now() },
+              });
+              return { ok: true };
             } catch (err) {
               console.error('PDF preparation failed:', err);
               return { ok: false, error: err.message || 'PDF preparation failed.' };

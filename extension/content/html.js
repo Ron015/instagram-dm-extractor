@@ -9,13 +9,24 @@ var ChatHtmlGenerator = (() => {
   'use strict';
 
   const TEMPLATE_URL = chrome.runtime.getURL('template/chat_export.html');
+  const SCRIPT_URL = chrome.runtime.getURL('template/chat_export.js');
 
   let cachedTemplate = null;
 
   async function loadTemplate() {
     if (cachedTemplate) return cachedTemplate;
-    const response = await fetch(TEMPLATE_URL);
-    cachedTemplate = await response.text();
+    const [html, js] = await Promise.all([
+      fetch(TEMPLATE_URL).then(r => r.text()),
+      fetch(SCRIPT_URL).then(r => r.text()),
+    ]);
+    // The template loads the renderer via <script src> so it can run as an
+    // extension page (MV3 forbids inline scripts there). For the standalone
+    // downloaded file, inline the script so the export is a single self-contained
+    // file. Use a function replacer so $-sequences in the code are not expanded.
+    cachedTemplate = html.replace(
+      /<script src="chat_export\.js"><\/script>/,
+      () => '<script>\n' + js + '\n</script>'
+    );
     return cachedTemplate;
   }
 
