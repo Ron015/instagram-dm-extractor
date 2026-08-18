@@ -809,6 +809,90 @@
             font-weight: 500;
             color: var(--text-secondary);
         }
+        /* ============ Print / Save-as-PDF ============ */
+        @media print {
+            * {
+                transition: none !important;
+                animation: none !important;
+            }
+            body {
+                background: #fff;
+                display: block;
+                min-height: 0;
+            }
+            .phone-frame {
+                max-width: 100%;
+                width: 100%;
+                height: auto;
+                max-height: none;
+                margin: 0;
+                border-radius: 0;
+                box-shadow: none;
+                background: #fff;
+                overflow: visible;
+            }
+            .messages-container {
+                overflow: visible;
+                background: #fff;
+            }
+            .messages-container > :first-child {
+                margin-top: 0;
+            }
+            .message-row {
+                break-inside: avoid;
+            }
+            /* Hide interactive chrome */
+            .status-bar, .back-btn, .header-actions, .search-bar,
+            .input-bar, .scroll-bottom-btn,
+            .reaction-popup-overlay, .lightbox-overlay {
+                display: none !important;
+            }
+            .chat-header {
+                background: #fff;
+                border-bottom: 1px solid #ddd;
+            }
+            .header-name { color: #111; }
+            .header-status { color: #777; }
+            .header-avatar { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            .info-bar {
+                background: #fff;
+                color: #777;
+                border-bottom: 1px solid #eee;
+            }
+            .date-separator span {
+                color: #555;
+                border-color: #ddd;
+            }
+            /* Sent stays Instagram blue on paper */
+            .sent .message-bubble, .sent .media-bubble, .sent .reel-share-bubble {
+                background: var(--bg-bubble-sent);
+                color: #fff;
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+            .received .message-bubble, .received .media-bubble, .received .reel-share-bubble {
+                background: #efefef;
+                color: #111;
+            }
+            .received .reel-owner { color: #111; }
+            .received .reel-label { color: #666; }
+            .reel-icon { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            .action-log .message-bubble { color: #888; background: transparent; }
+            .message-timestamp { color: #999; }
+            .reaction-badge {
+                background: #fff;
+                border-color: #ddd;
+                box-shadow: none;
+                color: #111;
+            }
+            .reaction-badge .count-display { color: #666; }
+            .reply-preview {
+                background: #f5f5f5;
+                border-color: #e0e0e0;
+            }
+            .reply-preview .reply-sender { color: #333; }
+            .reply-preview .reply-text { color: #666; }
+        }
     </style>
 </head>
 <body>
@@ -852,6 +936,9 @@
                 </div>
                 <div class="header-action-btn hide-on-search" title="Video">
                     <svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17" fill="none" stroke="#fff" stroke-width="1.8"/><rect x="1" y="5" width="15" height="14" rx="2" fill="none" stroke="#fff" stroke-width="1.8"/></svg>
+                </div>
+                <div class="header-action-btn hide-on-search" id="printBtn" title="Save as PDF">
+                    <svg viewBox="0 0 24 24"><path d="M12 3v10m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </div>
             </div>
         </div>
@@ -1312,6 +1399,7 @@
             }
 
             // Event listeners
+            document.getElementById('printBtn').addEventListener('click', function() { window.print(); });
             searchBtn.addEventListener('click', enterSearch);
             cancelSearchBtn.addEventListener('click', exitSearch);
             searchInput.addEventListener('input', function(e) { doSearch(e.target.value); });
