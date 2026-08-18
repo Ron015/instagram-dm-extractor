@@ -105,12 +105,15 @@ var ChatExtractor = (() => {
           return { ok: false, error: 'auth_error', message: `Auth error (${resp.status})` };
         }
 
-        // Other 4xx are deterministic (e.g. 404 for an unknown thread id) — retrying just wastes time
-        if (resp.status < 500) {
-          return { ok: false, error: `http_${resp.status}`, message: `Request failed (${resp.status}).` };
+        // 404 is deterministic (unknown thread id) — retrying 3x with delays just
+        // wastes time, which is what made thread resolution slow. Other statuses
+        // (incl. 400 feedback_required, IG's soft rate-limit) can recover, so keep
+        // retrying them or a long extraction would be discarded mid-flight.
+        if (resp.status === 404) {
+          return { ok: false, error: 'http_404', message: 'Conversation not found (404).' };
         }
 
-        // 5xx — retry
+        // Other errors — retry
         await delay(2000);
       } catch (e) {
         await delay(2000);

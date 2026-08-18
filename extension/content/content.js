@@ -289,7 +289,13 @@ window.__igDmExtractorLoaded = true;
 
       case 'DOWNLOAD_CSV':
         if (state.jsonData) {
-          const esc = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+          // Prefix a quote to cells that a spreadsheet would treat as a formula
+          // (=, +, -, @, tab, CR) so attacker message text can't run on open.
+          const esc = v => {
+            const s = String(v == null ? '' : v);
+            const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+            return `"${safe.replace(/"/g, '""')}"`;
+          };
           const rows = ['timestamp,sender,type,text'];
           for (const m of state.jsonData.messages || []) {
             rows.push([new Date(m.timestampUnix * 1000).toISOString(), m.sender, m.type, m.text || ''].map(esc).join(','));
@@ -323,6 +329,8 @@ window.__igDmExtractorLoaded = true;
             try {
               const htmlContent = await ChatHtmlGenerator.generateHtml(state.jsonData, state.stats);
               const url = URL.createObjectURL(new Blob([htmlContent], { type: 'text/html' }));
+              // Free the blob (holds the full transcript) once the new tab has loaded it.
+              setTimeout(() => URL.revokeObjectURL(url), 60000);
               return { ok: true, url };
             } catch (err) {
               console.error('PDF preparation failed:', err);

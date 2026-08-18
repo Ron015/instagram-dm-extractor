@@ -25,13 +25,15 @@ var ChatHtmlGenerator = (() => {
       }
     
       const participants = chatData.participants || [];
-    
+
+      // parser.js emits the viewer as "me" or "me (<id>)"; match that exactly,
+      // not any username that merely contains "me" (james, mehul, homer...).
       for (const p of participants) {
-        if (!p.toLowerCase().includes('me')) {
+        if (p !== 'me' && !p.startsWith('me (')) {
           return p.replace(/^_|_$/g, '');
         }
       }
-    
+
       return 'Unknown';
     }
 
@@ -51,10 +53,11 @@ var ChatHtmlGenerator = (() => {
     if (messages.length === 0) return 'No messages';
     
     const lastMsg = messages[messages.length - 1];
+    if (!lastMsg.timestampUnix) return 'Active recently';
     const lastMsgDate = new Date(lastMsg.timestampUnix * 1000);
     const daysSince = Math.floor((Date.now() - lastMsgDate.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (daysSince === 0) return 'Active now';
+
+    if (daysSince <= 0) return 'Active now';
     if (daysSince === 1) return 'Active yesterday';
     if (daysSince < 7) return 'Active ' + daysSince + 'd ago';
     if (daysSince < 30) return 'Active ' + Math.floor(daysSince / 7) + 'w ago';
@@ -83,17 +86,25 @@ var ChatHtmlGenerator = (() => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const exportDate = `${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
 
-    // Function replacers: a string replacement would interpret $&, $', $` etc.
-    // inside chat data as replacement patterns and corrupt the output.
-    return template
-      .replace(/__AVATAR_INITIALS__/g, () => escapeHtml(avatarInitials))
-      .replace(/__DISPLAY_NAME__/g, () => escapeHtml(displayName))
-      .replace(/__STATUS_TEXT__/g, () => escapeHtml(statusText))
-      .replace(/__MESSAGE_COUNT__/g, () => String(messageCount))
-      .replace(/__EXPORT_TIME__/g, () => exportTime)
-      .replace(/__EXPORT_DATE__/g, () => exportDate)
-      .replace('__CHAT_JSON__', () => chatJson)
-      .replace('__STATS_JSON__', () => statsJson);
+    // Single pass over all placeholders. Sequential .replace() calls are unsafe:
+    // an earlier pass can inject attacker-controlled chat text that contains a
+    // later placeholder token (e.g. a DM saying "__STATS_JSON__"), and the later
+    // pass would then substitute into the attacker's copy, corrupting the export.
+    // One combined regex never rescans replacement text.
+    const values = {
+      __AVATAR_INITIALS__: escapeHtml(avatarInitials),
+      __DISPLAY_NAME__: escapeHtml(displayName),
+      __STATUS_TEXT__: escapeHtml(statusText),
+      __MESSAGE_COUNT__: String(messageCount),
+      __EXPORT_TIME__: exportTime,
+      __EXPORT_DATE__: exportDate,
+      __CHAT_JSON__: chatJson,
+      __STATS_JSON__: statsJson,
+    };
+    return template.replace(
+      /__(?:AVATAR_INITIALS|DISPLAY_NAME|STATUS_TEXT|MESSAGE_COUNT|EXPORT_TIME|EXPORT_DATE|CHAT_JSON|STATS_JSON)__/g,
+      (m) => values[m]
+    );
   }
 
   function escapeHtml(str) {

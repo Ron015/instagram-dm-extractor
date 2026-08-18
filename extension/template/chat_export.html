@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="description" content="Instagram DM Chat Export">
     <!-- Defense in depth: the export must never make network requests beyond images. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src https: data:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src https://*.cdninstagram.com https://*.fbcdn.net https://*.giphy.com https://media.giphy.com data:; form-action 'none'; base-uri 'none';">
     <meta name="theme-color" content="#000000">
     <title>Instagram DM - Chat</title>
     
@@ -1029,8 +1029,10 @@
 
             function highlightText(text, query) {
                 if (!query || !text) return text;
-                const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp('(' + escapedQuery + ')', 'gi');
+                // text is already HTML-escaped, so escape the query the same way
+                // before matching — otherwise "it's" never matches "it&#39;s".
+                const q = escapeHtmlText(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp('(' + q + ')', 'gi');
                 return text.replace(regex, '<span class="search-highlight-text">$1</span>');
             }
 
@@ -1079,6 +1081,7 @@
                     s.className = 'date-separator';
                     s.innerHTML = '<span>' + formatDateLabel(msg._dateKey) + '</span>';
                     s.setAttribute('data-date-key', msg._dateKey);
+                    s.setAttribute('data-msg-index', msg._globalIndex);
                     return s;
                 }
 
@@ -1229,6 +1232,7 @@
             let searchMode = false, searchResults = [], searchIdx = -1;
 
             function enterSearch() {
+                if (searchMode) return;
                 searchMode = true;
                 chatHeader.classList.add('search-mode');
                 searchInput.value = '';
@@ -1369,7 +1373,7 @@
                     else if (reactionPopupOverlay.classList.contains('active')) hideReactionPopup();
                     else if (searchMode) exitSearch();
                 }
-                if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); enterSearch(); }
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) { e.preventDefault(); enterSearch(); }
             });
 
             messagesContainer.addEventListener('scroll', function() {
@@ -1399,9 +1403,22 @@
 
         if (chatData) {
             startApp();
-            // Opened via the popup's Save as PDF button — go straight to the print dialog.
+            // Opened via the popup's Save as PDF button — go straight to the print
+            // dialog, but wait for images to load first so photo bubbles are not
+            // blank in the PDF. Cap the wait so a hung image can't block forever.
             if (location.hash.indexOf('print') !== -1) {
-                setTimeout(function() { window.print(); }, 700);
+                var imgs = Array.prototype.slice.call(document.images);
+                var pending = imgs.filter(function(i) { return !i.complete; });
+                var done = false;
+                var go = function() { if (!done) { done = true; window.print(); } };
+                if (!pending.length) {
+                    setTimeout(go, 300);
+                } else {
+                    var left = pending.length;
+                    var tick = function() { if (--left <= 0) go(); };
+                    pending.forEach(function(i) { i.addEventListener('load', tick); i.addEventListener('error', tick); });
+                    setTimeout(go, 4000);
+                }
             }
         } else {
             document.body.textContent = 'No chat data in this file. Export it again from the extension popup.';
