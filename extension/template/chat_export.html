@@ -799,6 +799,14 @@
             justify-content: center;
             flex-shrink: 0;
         }
+        .info-bar-link {
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .info-bar-link:hover {
+            color: var(--accent-blue);
+        }
         /* ============ Print / Save-as-PDF ============ */
         @media print {
             * {
@@ -889,7 +897,7 @@
         </div>
 
         <div class="info-bar">
-            <span id="infoBarText">__MESSAGE_COUNT__ messages · Exported from Instagram</span>
+            <span id="infoBarText">__MESSAGE_COUNT__ messages · Exported with</span>&nbsp;<a class="info-bar-link" href="https://chromewebstore.google.com/detail/instagrow-%E2%80%94-creator-toolk/nakalihddjdkpgbekjhajjammlbkemoj" target="_blank" rel="noopener">Instagrow</a>
         </div>
 
         <div class="messages-container" id="messagesContainer"></div>
